@@ -16,7 +16,8 @@ dataset/images/synthetic/*
 dataset/labels/*
 !dataset/labels/.gitkeep
 dataset/crops/
-dataset/raw_downloads/
+dataset/raw_downloads/*
+!dataset/raw_downloads/manifest.csv
 result.csv
 logs/
 .cache/

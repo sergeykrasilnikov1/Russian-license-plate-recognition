@@ -101,7 +101,7 @@ python scripts/run_inference.py
 
 | Скрипт | Назначение |
 |--------|------------|
-| `scripts/scrape_real_data.py` | Автосбор реальных фото |
+| `scripts/scrape_real_data.py` | Автосбор реальных фото (`--probe-only`, `--dry-run`, `--plate-types`) |
 | `scripts/build_synthetic.py` | Синтетика ≥ 5000, `--seed` |
 | `scripts/train_detector.py` | YOLOv11n |
 | `scripts/train_ocr.py` | Дообучение OCR |
@@ -117,7 +117,7 @@ python scripts/run_inference.py
 | Этап | Тема | Отчёт |
 |------|------|-------|
 | 1 | Структура и окружение | [stage1.md](docs/reports/stage1.md) |
-| 2 | Автосбор реальных данных | — |
+| 2 | Автосбор реальных данных | [stage2.md](docs/reports/stage2.md) |
 | 3 | Генератор синтетики | — |
 | 4 | Детекция (YOLO) + тип как класс | — |
 | 5 | OCR + benchmark | — |
