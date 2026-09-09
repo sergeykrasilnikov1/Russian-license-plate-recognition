@@ -89,6 +89,10 @@ class RawItem:
     type_is_authoritative: bool = False
     boxes: list[YoloBox] = field(default_factory=list)
     attribution: str = ""
+    #: Plate text supplied by the source (e.g. encoded in the filename),
+    #: always re-validated against the GOST mask before use.
+    plate_text: str | None = None
+    plate_text_source: str = ""
 
     def read_bytes(self) -> bytes:
         if self.data is not None:

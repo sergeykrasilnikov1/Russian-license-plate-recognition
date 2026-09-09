@@ -6,6 +6,7 @@ Collector network paths are exercised through mocks.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from unittest import mock
@@ -20,6 +21,9 @@ from scripts import scrape_real_data
 from src.data_collection.coarse_label import CoarseTypeClassifier, yellow_ratio
 from src.data_collection.collectors import COLLECTOR_REGISTRY
 from src.data_collection.collectors.base import RateLimited, RawItem, YoloBox, request_with_retry
+from src.data_collection.collectors.kaggle_ds import DEFAULT_DATASETS as KAGGLE_DEFAULTS
+from src.data_collection.collectors.kaggle_ds import KaggleCollector
+from src.data_collection.collectors.roboflow_universe import RoboflowCollector
 from src.data_collection.filters import ConditionEstimator, PerceptualDeduper, QualityFilter
 from src.data_collection.licensing import LicensePolicy, is_acceptable, normalize_license
 from src.data_collection.meta_store import (
@@ -31,6 +35,7 @@ from src.data_collection.meta_store import (
     write_yolo_label,
 )
 from src.data_collection.pipeline import DatasetPaths, Ingestor
+from src.utils.plate_mask import looks_like_special_plate
 
 
 def make_plate(width: int, height: int, background=(255, 255, 255)) -> np.ndarray:
@@ -334,11 +339,40 @@ class TestIngestor:
         staged = ingestor.paths.raw_downloads / "src"
         staged.mkdir(parents=True)
         cv2.imwrite(str(staged / "orphan.jpg"), noisy(100, 100))
+        cv2.imwrite(str(staged / "known.jpg"), noisy(100, 100))
         labeled = ingestor.paths.images_real / "src"
         labeled.mkdir(parents=True)
         cv2.imwrite(str(labeled / "unreferenced.jpg"), noisy(100, 100))
+        cv2.imwrite(str(labeled / "referenced.jpg"), noisy(100, 100))
+
+        # Non-empty ledgers: only the rows below are known, the rest are orphans
+        ingestor.manifest.append(
+            ManifestRow(
+                file="raw_downloads/src/known.jpg",
+                source="unit",
+                source_url="http://example/known",
+                license="CC BY 4.0",
+                license_spdx="CC-BY-4.0",
+            )
+        )
+        ingestor.meta.append(
+            MetaRow(
+                image="images/real/src/referenced.jpg",
+                plate_num="########",
+                plate_type="type1",
+                bbox="1 2 3 4",
+                quad="",
+                is_vehicle=1,
+                is_synthetic=0,
+                source="unit",
+                license="CC-BY-4.0",
+                conditions="day",
+            )
+        )
 
         assert ingestor.reconcile() == {"raw_downloads": 1, "images_real": 1}
+        assert (staged / "known.jpg").is_file()
+        assert (labeled / "referenced.jpg").is_file()
         assert not (staged / "orphan.jpg").exists()
         assert not (labeled / "unreferenced.jpg").exists()
 
@@ -365,6 +399,250 @@ class TestIngestor:
         assert len(ingestor.meta) == 0
         assert not list(ingestor.paths.images_real.rglob("*.jpg"))
         assert not list(ingestor.paths.labels.glob("*.txt"))
+
+
+class TestSourcePlateText:
+    """Plate numbers encoded in export filenames are metadata, not guesses."""
+
+    def test_valid_grz_filename_is_accepted(self):
+        text, override = RoboflowCollector._plate_from_filename("A146AB799_png.rf.deadbeef")
+        assert (text, override) == ("A146AB799", None)
+
+    def test_diplomatic_filename_becomes_other(self):
+        text, override = RoboflowCollector._plate_from_filename("002CD178_jpg.rf.cafe1234")
+        assert text is None and override == "other"
+
+    def test_unparseable_filename_yields_nothing(self):
+        assert RoboflowCollector._plate_from_filename("IMG_20210101_png.rf.abc123") == (None, None)
+
+    def test_special_series_detected(self):
+        assert looks_like_special_plate("002CD178")
+        assert not looks_like_special_plate("A146AB799")
+
+    def test_ingestor_uses_source_plate_text(self, tmp_path):
+        ingestor = TestIngestor()._ingestor(tmp_path)
+        item = RawItem(
+            source="unit:src",
+            source_url="http://example/9",
+            license_raw="CC BY 4.0",
+            filename="A000AA78.jpg",
+            data=TestIngestor()._encode(noisy(640, 480)),
+            suggested_type="type1",
+            type_is_authoritative=True,
+            boxes=[YoloBox(0, 0.5, 0.5, 0.2, 0.06)],
+            plate_text="A000AA78",
+            plate_text_source="source_filename",
+        )
+        collector = mock.Mock(access_note="")
+        collector.name = "unit"
+        collector.check_available.return_value = (True, "ok")
+        collector.collect.return_value = iter([item])
+
+        stats = ingestor.run_source(collector, limit=5)
+
+        assert ingestor.meta.rows[0]["plate_num"] == "A000AA78"
+        assert stats.plate_text_from_source == 1
+
+    def test_invalid_source_text_falls_back_to_unknown(self, tmp_path):
+        ingestor = TestIngestor()._ingestor(tmp_path)
+        item = RawItem(
+            source="unit:src",
+            source_url="http://example/10",
+            license_raw="CC BY 4.0",
+            filename="bad.jpg",
+            data=TestIngestor()._encode(noisy(640, 480)),
+            suggested_type="type1",
+            type_is_authoritative=True,
+            boxes=[YoloBox(0, 0.5, 0.5, 0.2, 0.06)],
+            plate_text="ZZ!!99",
+        )
+        collector = mock.Mock(access_note="")
+        collector.name = "unit"
+        collector.check_available.return_value = (True, "ok")
+        collector.collect.return_value = iter([item])
+        ingestor.run_source(collector, limit=5)
+
+        assert ingestor.meta.rows[0]["plate_num"] == "########"
+
+    def test_text_dropped_when_image_has_several_plates(self, tmp_path):
+        ingestor = TestIngestor()._ingestor(tmp_path)
+        item = RawItem(
+            source="unit:src",
+            source_url="http://example/11",
+            license_raw="CC BY 4.0",
+            filename="two.jpg",
+            data=TestIngestor()._encode(noisy(640, 480)),
+            suggested_type="type1",
+            type_is_authoritative=True,
+            boxes=[YoloBox(0, 0.3, 0.5, 0.2, 0.06), YoloBox(0, 0.7, 0.5, 0.2, 0.06)],
+            plate_text="A000AA78",
+        )
+        collector = mock.Mock(access_note="")
+        collector.name = "unit"
+        collector.check_available.return_value = (True, "ok")
+        collector.collect.return_value = iter([item])
+        ingestor.run_source(collector, limit=5)
+
+        assert {r["plate_num"] for r in ingestor.meta.rows} == {"########"}
+
+
+class TestYellowOverride:
+    """Yellow survives perspective, so it may override a declared type1."""
+
+    def _run(self, tmp_path, declared: str, background) -> str:
+        import cv2
+
+        ingestor = TestIngestor()._ingestor(tmp_path)
+        image = noisy(640, 480)
+        image[200:280, 220:420] = background
+        item = RawItem(
+            source="unit:src",
+            source_url="http://example/12",
+            license_raw="CC BY 4.0",
+            filename="plate.jpg",
+            data=cv2.imencode(".jpg", image)[1].tobytes(),
+            suggested_type=declared,
+            type_is_authoritative=True,
+            boxes=[YoloBox(0, 0.5, 0.5, 0.3, 0.16)],
+        )
+        collector = mock.Mock(access_note="")
+        collector.name = "unit"
+        collector.check_available.return_value = (True, "ok")
+        collector.collect.return_value = iter([item])
+        ingestor.run_source(collector, limit=5)
+        return ingestor.meta.rows[0]["plate_type"]
+
+    def test_yellow_in_russian_source_becomes_type1b(self, tmp_path):
+        assert self._run(tmp_path, "type1", (0, 200, 255)) == "type1b"
+
+    def test_yellow_in_foreign_source_stays_other(self, tmp_path):
+        assert self._run(tmp_path, "other", (0, 200, 255)) == "other"
+
+    def test_white_plate_keeps_declared_type(self, tmp_path):
+        assert self._run(tmp_path, "type1", (255, 255, 255)) == "type1"
+
+
+class TestAnnotationParsers:
+    def test_voc_xml_to_yolo(self, tmp_path):
+        (tmp_path / "car.xml").write_text(
+            """<annotation><size><width>200</width><height>100</height></size>
+            <object><bndbox><xmin>50</xmin><ymin>20</ymin><xmax>150</xmax><ymax>60</ymax></bndbox></object>
+            </annotation>""",
+            encoding="utf-8",
+        )
+        boxes = KaggleCollector._voc_boxes(tmp_path, tmp_path / "car.jpg")
+        assert len(boxes) == 1
+        assert boxes[0].xc == pytest.approx(0.5)
+        assert boxes[0].yc == pytest.approx(0.4)
+        assert boxes[0].w == pytest.approx(0.5)
+        assert boxes[0].h == pytest.approx(0.4)
+
+    def test_voc_without_size_is_skipped(self, tmp_path):
+        (tmp_path / "car.xml").write_text("<annotation><object/></annotation>", encoding="utf-8")
+        assert KaggleCollector._voc_boxes(tmp_path, tmp_path / "car.jpg") == []
+
+    def test_coco_index_to_yolo(self, tmp_path):
+        (tmp_path / "_annotations.coco.json").write_text(
+            json.dumps(
+                {
+                    "images": [{"id": 1, "file_name": "a.jpg", "width": 400, "height": 200}],
+                    "annotations": [{"image_id": 1, "bbox": [100, 40, 200, 80]}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        collector = KaggleCollector(tmp_path, token="stub")
+        index = collector._coco_index(tmp_path)
+        assert list(index) == ["a.jpg"]
+        box = index["a.jpg"][0]
+        assert (box.xc, box.yc, box.w, box.h) == pytest.approx((0.5, 0.4, 0.5, 0.4))
+
+    def test_coco_ignores_degenerate_bbox(self, tmp_path):
+        (tmp_path / "_annotations.coco.json").write_text(
+            json.dumps(
+                {
+                    "images": [{"id": 1, "file_name": "a.jpg", "width": 400, "height": 200}],
+                    "annotations": [{"image_id": 1, "bbox": [10, 10, 0, 40]}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        assert KaggleCollector(tmp_path, token="stub")._coco_index(tmp_path) == {}
+
+
+class TestCredentialGating:
+    """Both SDK sources must skip themselves instead of scraping without keys."""
+
+    def test_roboflow_without_key_is_unavailable(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("ROBOFLOW_API_KEY", raising=False)
+        ok, reason = RoboflowCollector(tmp_path).check_available()
+        assert not ok and "no_api_key" in reason
+
+    def test_kaggle_without_token_is_unavailable(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("KAGGLE_API_TOKEN", raising=False)
+        monkeypatch.setattr(KaggleCollector, "_read_token", staticmethod(lambda: ""))
+        ok, reason = KaggleCollector(tmp_path).check_available()
+        assert not ok and "no_token" in reason
+
+    def test_kaggle_reports_expired_token(self, tmp_path):
+        collector = KaggleCollector(tmp_path, token="KGAT_expired")
+        with mock.patch.object(
+            KaggleCollector, "_session", return_value=mock.Mock(get=lambda *a, **k: mock.Mock(status_code=401))
+        ):
+            ok, reason = collector.check_available()
+        assert not ok and "token_rejected_or_expired" in reason
+
+    def test_excluded_datasets_stay_excluded(self):
+        refs = {d.ref for d in KAGGLE_DEFAULTS}
+        assert "evgrafovmaxim/nomeroff-russian-license-plates" not in refs
+        assert "adilshamim8/license-plate-recognition" not in refs
+
+
+class TestLedgerSafety:
+    """A ledger that cannot be parsed must never be silently overwritten."""
+
+    def test_mismatched_header_raises(self, tmp_path):
+        path = tmp_path / "meta.csv"
+        path.write_text("image;plate_num\nfoo.jpg;A000AA78\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="unexpected columns"):
+            MetaStore(path)
+
+    def test_empty_file_is_treated_as_new(self, tmp_path):
+        path = tmp_path / "meta.csv"
+        path.write_text("", encoding="utf-8")
+        assert len(MetaStore(path)) == 0
+
+    def test_existing_rows_are_marked_loaded(self, tmp_path):
+        path = tmp_path / "meta.csv"
+        store = MetaStore(path)
+        store.append(
+            MetaRow(
+                image="images/real/a.jpg",
+                plate_num="A000AA78",
+                plate_type="type1",
+                bbox="1 2 3 4",
+                quad="",
+                is_vehicle=1,
+                is_synthetic=0,
+                source="unit",
+                license="CC-BY-4.0",
+                conditions="day",
+            )
+        )
+        store.flush()
+        assert MetaStore(path).loaded_from_disk is True
+
+    def test_reconcile_keeps_files_when_ledger_is_empty(self, tmp_path):
+        """The failure mode that once deleted an entire collected source."""
+        ingestor = TestIngestor()._ingestor(tmp_path)
+        stray = ingestor.paths.images_real / "src" / "keep.jpg"
+        stray.parent.mkdir(parents=True, exist_ok=True)
+        stray.write_bytes(b"not-an-image")
+
+        removed = ingestor.reconcile()
+
+        assert removed["images_real"] == 0
+        assert stray.is_file()
 
 
 class TestRetry:

@@ -61,6 +61,17 @@ def validate_plate(plate: str, allow_hash: bool = True) -> Tuple[bool, str]:
     return True, plate
 
 
+# Plates outside the three target types: diplomatic (002CD178), military and
+# similar series start with digits instead of a letter. They must be reported
+# as `other`, never as a target type with an invented number.
+_SPECIAL_RE = re.compile(r"^\d{3}[A-Z]{1,2}\d{2,3}$")
+
+
+def looks_like_special_plate(text: str) -> bool:
+    """True for non-target Russian series (diplomatic, military, transit)."""
+    return bool(_SPECIAL_RE.match(normalize_plate(text)))
+
+
 def mask_invalid_chars(plate: str) -> str:
     """Replace characters outside alphabet with '#' keeping length."""
     plate = normalize_plate(plate)

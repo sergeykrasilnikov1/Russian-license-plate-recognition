@@ -33,6 +33,20 @@ python scripts/validate_dataset.py --dataset dataset
 python -m pytest tests -q
 ```
 
+### Ключи источников данных
+
+Сбор данных (Этап 2) читает ключи **только из переменных окружения** — в
+репозитории они не хранятся. Без ключа источник объявляет себя недоступным и
+пропускается, прогон при этом не падает.
+
+```bash
+export ROBOFLOW_API_KEY=...     # Roboflow Universe
+export KAGGLE_API_TOKEN=...     # либо файл ~/.kaggle/access_token
+export OPENVERSE_API_TOKEN=...  # необязательно, поднимает лимит запросов
+
+python scripts/scrape_real_data.py --probe-only   # какие источники доступны
+```
+
 ## Обучение выполняется на GPU-сервере
 
 Локально код Этапов 4–6 только пишется и проверяется логически (импорты, CLI,

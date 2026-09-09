@@ -97,11 +97,19 @@ class _CsvLedger:
         self.path = Path(path)
         self.columns = list(columns)
         self._rows: list[dict] = []
-        if self.path.is_file():
+        self.loaded_from_disk = False
+        if self.path.is_file() and self.path.stat().st_size > 0:
             with self.path.open(encoding="utf-8", newline="") as f:
                 reader = csv.DictReader(f, delimiter=";")
-                if reader.fieldnames == self.columns:
-                    self._rows = [dict(r) for r in reader]
+                if reader.fieldnames != self.columns:
+                    # Silently starting empty here would make the next flush
+                    # overwrite the ledger and orphan every collected image.
+                    raise ValueError(
+                        f"{self.path} has unexpected columns {reader.fieldnames}; "
+                        f"expected {self.columns}. Refusing to overwrite it."
+                    )
+                self._rows = [dict(r) for r in reader]
+                self.loaded_from_disk = True
 
     def __len__(self) -> int:
         return len(self._rows)

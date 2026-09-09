@@ -18,6 +18,7 @@ import cv2
 import numpy as np
 
 from ..utils.geometry import CLASS_NAME_TO_ID
+from ..utils.plate_mask import validate_plate
 from .coarse_label import CoarseTypeClassifier, yellow_ratio
 from .collectors.base import Collector, RawItem
 from .filters import ConditionEstimator, FaceBlurrer, PerceptualDeduper, QualityFilter
@@ -47,6 +48,8 @@ class SourceStats:
     pending_images: int = 0
     by_type: dict[str, int] = field(default_factory=dict)
     type_disagreements: dict[str, int] = field(default_factory=dict)
+    plate_text_from_source: int = 0
+    rejected_plate_text: dict[str, int] = field(default_factory=dict)
 
     @property
     def accepted(self) -> int:
@@ -73,6 +76,8 @@ class SourceStats:
             "rejected_duplicate": self.rejected_duplicate,
             "by_type": self.by_type,
             "type_disagreements_source_vs_geometry": self.type_disagreements,
+            "plate_text_from_source": self.plate_text_from_source,
+            "rejected_plate_text": self.rejected_plate_text,
         }
 
 
@@ -117,6 +122,7 @@ class Ingestor:
         conditions: ConditionEstimator | None = None,
         dry_run: bool = False,
         flush_every: int = 25,
+        yellow_override: float = 0.5,
     ) -> None:
         self.paths = paths
         self.policy = policy
@@ -127,6 +133,7 @@ class Ingestor:
         self.conditions = conditions or ConditionEstimator()
         self.dry_run = dry_run
         self.flush_every = max(1, flush_every)
+        self.yellow_override = yellow_override
 
         self.meta = MetaStore(paths.meta)
         self.manifest = ManifestStore(paths.manifest)
@@ -200,21 +207,34 @@ class Ingestor:
         An interrupted run can leave images on disk whose ledger row was never
         flushed; those orphans would otherwise be invisible to dedup and to the
         dataset statistics.
+
+        An empty ledger means "nothing is known", not "everything is an
+        orphan": deleting against it once wiped a whole collected source, so
+        that case is skipped with a warning instead.
         """
         removed = {"raw_downloads": 0, "images_real": 0}
 
-        staged = {(self.paths.root / row).as_posix() for row in self.manifest.existing_files()}
-        for image_path in _iter_images(self.paths.raw_downloads):
-            if image_path.as_posix() not in staged:
-                image_path.unlink()
-                removed["raw_downloads"] += 1
+        for key, ledger_rows, directory in (
+            ("raw_downloads", self.manifest.existing_files(), self.paths.raw_downloads),
+            ("images_real", self.meta.existing_images(), self.paths.images_real),
+        ):
+            on_disk = list(_iter_images(directory))
+            if not ledger_rows and on_disk:
+                log.warning(
+                    "skipping reconcile of %s: ledger is empty but %d images are on disk",
+                    key,
+                    len(on_disk),
+                )
+                continue
 
-        labeled = {(self.paths.root / row).as_posix() for row in self.meta.existing_images()}
-        for image_path in _iter_images(self.paths.images_real):
-            if image_path.as_posix() not in labeled:
+            known = {(self.paths.root / row).as_posix() for row in ledger_rows}
+            for image_path in on_disk:
+                if image_path.as_posix() in known:
+                    continue
                 image_path.unlink()
-                (self.paths.labels / f"{image_path.stem}.txt").unlink(missing_ok=True)
-                removed["images_real"] += 1
+                if key == "images_real":
+                    (self.paths.labels / f"{image_path.stem}.txt").unlink(missing_ok=True)
+                removed[key] += 1
         return removed
 
     def _ingest(self, item: RawItem, stats: SourceStats) -> None:
@@ -257,15 +277,34 @@ class Ingestor:
         A source that documents its plate type wins over the geometric guess:
         distant or strongly angled type1 plates lose width and look square, so
         trusting the classifier there would relabel ordinary plates as type1a.
+        The one exception is a decisively yellow background — color survives
+        perspective, aspect ratio does not — which marks a genuine type1b even
+        inside a collection declared as type1. That override is restricted to
+        Russian-plate sources: a yellow plate inside a collection declared
+        `other` is a foreign plate, not a Russian taxi one.
         """
         guess = self.classifier.classify(crop)
         if item.type_is_authoritative and item.suggested_type:
             if guess.plate_type != item.suggested_type:
                 stats.bump(stats.type_disagreements, f"{item.suggested_type}->{guess.plate_type}")
+            if item.suggested_type in {"type1", "type1a"} and guess.yellow_ratio >= self.yellow_override:
+                stats.bump(stats.type_disagreements, "yellow_override->type1b")
+                return "type1b"
             return item.suggested_type
         if guess.confidence >= 0.5:
             return guess.plate_type
         return item.suggested_type or guess.plate_type
+
+    def _resolve_plate_text(self, item: RawItem, box_count: int, stats: SourceStats) -> str:
+        """Use source-provided plate text only if it passes the GOST mask."""
+        if not item.plate_text or box_count != 1:
+            return UNKNOWN_PLATE
+        ok, normalized = validate_plate(item.plate_text, allow_hash=False)
+        if not ok:
+            stats.bump(stats.rejected_plate_text, normalized)
+            return UNKNOWN_PLATE
+        stats.plate_text_from_source += 1
+        return normalized
 
     def _write_labeled(self, item: RawItem, image: np.ndarray, conditions: str, license_spdx: str, stats: SourceStats) -> None:
         """Source-annotated image: real bbox available, goes straight into meta.csv."""
@@ -284,6 +323,7 @@ class Ingestor:
         if not self.dry_run and label_path.exists():
             label_path.unlink()
 
+        plate_num = self._resolve_plate_text(item, len(item.boxes), stats)
         plates = 0
         for box in item.boxes:
             x, y, w, h = box.to_pixels(iw, ih)
@@ -298,7 +338,7 @@ class Ingestor:
             self.meta.append(
                 MetaRow(
                     image=rel_image,
-                    plate_num=UNKNOWN_PLATE,
+                    plate_num=plate_num,
                     plate_type=plate_type,
                     bbox=MetaRow.format_bbox(x, y, w, h),
                     quad=MetaRow.quad_from_bbox(x, y, w, h),

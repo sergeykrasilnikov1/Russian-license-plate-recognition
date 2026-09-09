@@ -50,30 +50,49 @@ collector sends an honest `User-Agent` (`grz-dataset-collector/...`), honours
 
 | Source | Access | License | Result |
 |--------|--------|---------|--------|
-| `AY000554/Car_plate_detecting_dataset` (Hugging Face) | official `huggingface_hub` SDK, `val.zip` | CC BY 4.0 (from AUTO.RIA Numberplate) | 887 images / 931 plates, **bboxes from the source dataset** |
+| `AY000554/Car_plate_detecting_dataset` (Hugging Face) | official `huggingface_hub` SDK, `val.zip` | CC BY 4.0 (from AUTO.RIA Numberplate) | 1181 images / 1239 plates, **bboxes from the source dataset** |
+| `tatmantech/russian-license-plates-ec7zg` v2 (Roboflow Universe) | official `roboflow` SDK, YOLOv8 export | CC BY 4.0 (reported by the Universe API) | 787 images / 982 plates, **331 plates with source-supplied text** |
+| `carplates/russian-plate-kuabh` v1 (Roboflow Universe) | official `roboflow` SDK, YOLOv8 export | CC BY 4.0 | 108 images / 108 plates |
+| `andrewmvd/car-plate-detection` (Kaggle) | documented REST API v1, Bearer token | CC0-1.0 | 241 images / 265 plates, all **`other`** (foreign plates) |
 | Wikimedia Commons | public MediaWiki API (`list=search`, `list=categorymembers`, `prop=imageinfo`) | per-file, from `extmetadata` | 194 staged candidates, unlabeled |
 
-### Sources implemented but unavailable in this environment
+Roboflow exports arrive pre-augmented by the source (flips, crops, rotations),
+so some images are mirrored copies of the same original. They are kept for
+detection only; mirrored plates never receive text (`plate_num = ########`).
+
+### Sources deliberately excluded
 
 | Source | Reason |
 |--------|--------|
-| Roboflow Universe | no `ROBOFLOW_API_KEY` |
-| Kaggle (MADE CV 2021) | no `~/.kaggle/kaggle.json` |
-| Openverse | anonymous daily quota exhausted (HTTP 401/429); supports `OPENVERSE_API_TOKEN` |
+| `evgrafovmaxim/nomeroff-russian-license-plates` (Kaggle) | LGPL-3.0 copyleft cannot be relicensed into this CC BY 4.0 dataset |
+| `adilshamim8/license-plate-recognition` (Kaggle) | 10 125 **Vietnamese** plates, zero annotation files |
+| `egorandreasyan/car-number-segment` (Kaggle) | Russian, but already cropped to the plate (38–145 px per side): trivial boxes, fails the resolution gate |
+| `plate-tsusp/russian-plate` v3 (Roboflow) | byte-identical re-upload of `carplates/russian-plate-kuabh`; all 262 images rejected by the deduper |
+| `symbolplate/russian-license-plate-characters` (Roboflow) | per-character boxes, not plate boxes — reserved for Stage 5 OCR |
 | PlatesMania | documented XML endpoints return HTTP 403/404; bypassing is forbidden, so the source is skipped |
+| Openverse | anonymous daily quota exhausted (HTTP 401/429); supports `OPENVERSE_API_TOKEN` |
 
 ### Labeling provenance
 
 - **bbox / quad**: taken from the source dataset's own YOLO annotations. Nothing
   in `meta.csv` was localized by our own model.
-- **plate_type**: when a source documents a single plate type (as the Hugging
-  Face dataset does), that declared type is authoritative. The geometric
-  classifier (background color + width/height ratio) is only used for sources
-  without a declared type, because distant or strongly angled type1 plates lose
-  width and would otherwise be misfiled as type1a.
-- **plate_num**: **not yet recognized** — every row carries `########`. Plate
-  text will be filled by the Stage 5 OCR pass and accepted only after passing
-  the GOST mask validator; unreadable positions stay `#`.
+- **plate_type**: when a source documents a single plate type, that declared
+  type is authoritative. The geometric classifier (background color + width/
+  height ratio) is only used for sources without a declared type, because
+  distant or strongly angled type1 plates lose width and would otherwise be
+  misfiled as type1a. One exception: a decisively yellow crop (≥ 50 % yellow
+  pixels) inside a **Russian** type1/type1a source is relabeled `type1b`, since
+  background color survives perspective while aspect ratio does not. The
+  override is not applied to `other` sources, where a yellow plate is a foreign
+  plate rather than a Russian taxi one.
+- **plate_num**: `########` for all but 331 plates. Those 331 come from export
+  filenames of `tatmantech/russian-license-plates-ec7zg`, which encode the
+  plate number (116 distinct numbers); each was normalized and re-validated
+  against the GOST mask, and is used only when the image holds exactly one
+  annotated plate. This is source metadata, not recognition output. Remaining
+  text is filled by the Stage 5 OCR pass, again gated by the mask validator.
+  Filenames from that source matching the diplomatic series pattern
+  (`002CD178`) mark the plate as `other` instead of supplying text.
 - **is_vehicle**: `1` for source datasets that consist of car photographs.
 - **conditions**: inferred from pixel statistics (brightness → `day`/`night`,
   clipped highlights → `glare`, low Laplacian variance → `motion_blur`).
@@ -96,11 +115,14 @@ ground truth, and it is not presented as such.
 
 | Group | Plates | Images | Unique plate numbers |
 |-------|--------|--------|----------------------|
-| type1 | 931 | 887 | 0 (text pending Stage 5) |
+| type1 | 2292 | 2011 | 116 |
 | type1a | 0 | 0 | 0 |
-| type1b | 0 | 0 | 0 |
-| other | 0 | 0 | 0 |
+| type1b | 35 | 34 | 0 (text pending Stage 5) |
+| other | 267 | 241 | 0 (no text by definition) |
+| **total** | **2594** | **2281** | **116** |
 | synthetic | 0 | 0 | — (Stage 3) |
+
+Licenses of labeled rows: CC-BY-4.0 — 2329, CC0-1.0 — 265.
 
 ### Staging pool `raw_downloads/manifest.csv`
 
@@ -122,24 +144,34 @@ detector.
 | Group | Recommended real minimum | Real (labeled) | Deficit | Coverage plan |
 |-------|--------------------------|----------------|---------|---------------|
 | type1a | 150 images / 300 plates | 0 | full | synthetic (Stage 3, increased share) + Stage 4 filtering of the staging pool |
-| type1b | 50 images / 50 plates | 0 | full | synthetic (Stage 3, increased share) + Stage 4 filtering of the staging pool |
-| other | 100 images | 0 | full | synthetic negatives + Stage 4 filtering |
-| type1 | — | 887 images / 931 plates | none | — |
+| type1b | 50 images / 50 plates | 34 images / 35 plates | 16 images, all 50 unique numbers | synthetic (Stage 3, increased share) + Stage 4 filtering of the staging pool |
+| other | 100 images | 241 images / 267 plates | none | — |
+| type1 | — | 2011 images / 2292 plates | none | — |
 
-The long-tail groups could not be filled from the open sources reachable here:
-the only richly annotated public dataset covers type1 only, and the sources that
-do contain squares and yellow plates are either credential-gated or throttled.
-Per the task fallback, the deficit is covered by generated data in Stage 3
-rather than by manual photography, and the final real/synthetic ratio per class
-is reported here once Stage 3 completes.
+`type1a` remains empty after querying every reachable source. Of the six
+Russian-plate projects found through the Roboflow Universe API and the Kaggle
+REST search, **none** annotates plate type: they all carry a single
+`licenseplate`-style class, which confirms the premise of the task that square
+and yellow plates are nearly absent from open datasets. The 35 `type1b` plates
+were recovered by the yellow-background override, not by any source label.
+
+Per the task fallback, the residual deficit is covered by generated data in
+Stage 3 rather than by manual photography, and the final real/synthetic ratio
+per class is reported here once Stage 3 completes.
 
 ## Reproduction
 
 ```bash
 pip install -r ../requirements-dev.txt
 
+# Credentials are read from the environment only, never stored in the repo
+export ROBOFLOW_API_KEY=...            # Roboflow Universe
+export KAGGLE_API_TOKEN=...            # or ~/.kaggle/access_token
+
 python ../scripts/scrape_real_data.py --probe-only
-python ../scripts/scrape_real_data.py --sources huggingface --hf-archives val.zip --limit 900
+python ../scripts/scrape_real_data.py --sources huggingface --limit 1200
+python ../scripts/scrape_real_data.py --sources roboflow --limit 1700
+python ../scripts/scrape_real_data.py --sources kaggle --limit 440
 python ../scripts/scrape_real_data.py --sources commons --plate-types type1a type1b other --limit 200
 python ../scripts/validate_dataset.py --dataset .
 ```
