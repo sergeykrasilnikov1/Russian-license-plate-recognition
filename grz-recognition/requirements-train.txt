@@ -1,0 +1,22 @@
+# GPU training / inference environment (separate server, NVIDIA GPU).
+# NOT installed on the local CPU development machine.
+#   pip install -r requirements-dev.txt
+#   pip install -r requirements-train.txt
+#
+# This file also covers the runtime the jury needs: onnxruntime + opencv are
+# enough to run scripts/run_inference.py with the shipped ONNX weights.
+
+# Deep learning
+torch==2.5.1
+torchvision==0.20.1
+ultralytics==8.3.40
+
+# OCR (PP-OCRv4/v5 mobile). Install the paddlepaddle build matching the server CUDA:
+#   pip install paddlepaddle-gpu==2.6.2  (or paddlepaddle==2.6.2 for CPU)
+paddleocr==2.9.1
+paddlepaddle-gpu==2.6.2
+
+# ONNX export + offline inference runtime
+onnx==1.17.0
+onnxruntime-gpu==1.20.1
+# onnxruntime==1.20.1  # use instead of -gpu on CPU-only inference hosts

@@ -1,0 +1,24 @@
+# End-to-end offline inference pipeline
+input_env: GRZ_INPUT_DIR
+output_env: GRZ_OUTPUT_CSV
+
+detector:
+  weights: weights/detector.onnx
+  config: configs/detector.yaml
+  providers:  # ONNX Runtime; first available wins
+    - CUDAExecutionProvider
+    - CPUExecutionProvider
+
+ocr:
+  config: configs/ocr.yaml
+  weights_dir: weights/ocr
+
+# Reject plates not on a vehicle (is_vehicle heuristic)
+vehicle_filter:
+  enabled: true
+  # Expand bbox by this fraction and require vehicle-like context score
+  context_pad: 0.5
+  min_context_score: 0.3
+
+latency_budget_ms: 100
+image_extensions: [".jpg", ".jpeg", ".png", ".JPG", ".JPEG", ".PNG"]

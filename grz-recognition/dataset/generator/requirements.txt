@@ -1,0 +1,6 @@
+# Generator-only extras (optional fonts, background packs)
+# Core deps live in repository root requirements.txt
+Pillow>=10.0.0
+numpy>=1.24.0
+opencv-python>=4.8.0
+albumentations>=1.3.0

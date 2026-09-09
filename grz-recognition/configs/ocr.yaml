@@ -1,0 +1,40 @@
+# OCR configuration for Russian GRZ characters
+# Allowed letters (shared Cyrillic/Latin glyphs): A B E K M H O P C T Y X
+charset: "0123456789ABEKMHOPCTYX#"
+plate_mask: "^[ABEKMHOPCTYX#][0-9#]{3}[ABEKMHOPCTYX#]{2}([0-9#]{2}|[127][0-9#]{2})$"
+
+# Warp output sizes (pixels) before OCR
+warp:
+  type1: [416, 96]      # ~520x112 mm aspect
+  type1a: [288, 168]    # ~290x170 mm; two-line layout flattened later
+  type1b: [416, 96]
+
+# Baseline candidates (pick by benchmark_latency.py)
+baselines:
+  - name: ppocrv4_mobile
+    engine: paddleocr
+    ocr_version: PP-OCRv4
+    use_angle_cls: false
+    lang: en
+  - name: ppocrv5_mobile
+    engine: paddleocr
+    ocr_version: PP-OCRv5
+    use_angle_cls: false
+    lang: en
+  - name: parseq
+    engine: parseq
+    weights: weights/parseq_grz.pt
+
+# Active OCR after benchmarking (override after Stage 5)
+active: ppocrv4_mobile
+
+# Confidence aggregation: mean | min | det_ocr_mean
+confidence_mode: det_ocr_mean
+
+# Training (fine-tune on plate crops)
+train:
+  epochs: 30
+  batch: 32
+  lr: 0.001
+  seed: 42
+  imgsz: [96, 416]

@@ -1,0 +1,43 @@
+# YOLOv11n plate detector (classes = plate types)
+model: yolo11n.pt
+task: detect
+
+# Parametrized class list — extend here for new plate types/countries
+names:
+  0: type1
+  1: type1a
+  2: type1b
+  3: other
+
+nc: 4
+
+imgsz: 640
+batch: 16
+epochs: 50
+patience: 15
+lr0: 0.01
+lrf: 0.01
+momentum: 0.937
+weight_decay: 0.0005
+warmup_epochs: 3.0
+optimizer: SGD
+seed: 42
+device: 0  # GPU id; use "cpu" if no NVIDIA GPU
+workers: 4
+project: runs/detect
+name: grz_yolo11n
+exist_ok: true
+pretrained: true
+amp: true
+
+# Export
+export_format: onnx
+opset: 12
+simplify: true
+dynamic: false
+half: false
+
+# Inference thresholds
+conf: 0.25
+iou: 0.45
+max_det: 10

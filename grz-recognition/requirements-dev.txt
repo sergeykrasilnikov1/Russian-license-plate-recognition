@@ -1,0 +1,33 @@
+# Local CPU environment: dataset collection, synthetic generation, tests.
+# Installs and runs on a machine WITHOUT a GPU.
+#   pip install -r requirements-dev.txt
+#
+# Deliberately excludes torch / paddle / ultralytics — see requirements-train.txt.
+
+# Core data / imaging
+numpy==1.26.4
+pandas==2.2.3
+Pillow==11.0.0
+opencv-python-headless==4.10.0.84
+albumentations==1.4.21
+PyYAML==6.0.2
+tqdm==4.67.1
+scikit-learn==1.5.2
+
+# Automatic dataset collection (open sources / official SDKs)
+requests==2.32.3
+beautifulsoup4==4.12.3
+lxml==5.3.0
+huggingface_hub==0.26.5
+roboflow==1.1.49
+kaggle==1.6.17  # needs ~/.kaggle/kaggle.json; source is skipped if absent
+
+# Privacy (face blur) and deduplication — CPU models only
+mediapipe==0.10.18
+imagehash==4.3.1
+
+# CLI / tests
+click==8.1.7
+rich==13.9.4
+python-dotenv==1.0.1
+pytest==8.3.4
