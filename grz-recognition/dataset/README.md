@@ -122,9 +122,14 @@ ground truth, and it is not presented as such.
 | **total** | **7594** | **7281** | — |
 | of which real | 2594 | 2281 | 116 |
 | of which synthetic | 5000 | 5000 | 5000 |
+| style_b type1a (val holdout) | 150 | 150 | 150 |
 
-Licenses of labeled rows: CC-BY-4.0 — 7329, CC0-1.0 — 265.
-Synthetic rows are all `CC-BY-4.0` / `source=synthetic_generator` / `is_synthetic=1`.
+After Stage 4 split prep (`prepare_detector_split.py --build-style-b 150`):
+**7744** meta rows / **7431** images (includes style_b). style_b never enters train.
+
+Licenses of labeled rows: CC-BY-4.0 — 7479, CC0-1.0 — 265.
+Synthetic rows are all `CC-BY-4.0` / `is_synthetic=1`.
+style_b rows: `source=synthetic_generator_style_b`.
 
 ### Staging pool `raw_downloads/manifest.csv`
 

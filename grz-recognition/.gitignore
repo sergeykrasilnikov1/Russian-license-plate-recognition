@@ -11,11 +11,15 @@ wandb/
 !weights/.gitkeep
 dataset/images/real/*
 dataset/images/synthetic/*
+dataset/images/synthetic_style_b/*
 !dataset/images/real/.gitkeep
 !dataset/images/synthetic/.gitkeep
+!dataset/images/synthetic_style_b/.gitkeep
 dataset/labels/*
 !dataset/labels/.gitkeep
 dataset/crops/
+dataset/splits/*.txt
+!dataset/splits/.gitkeep
 dataset/raw_downloads/*
 !dataset/raw_downloads/manifest.csv
 result.csv

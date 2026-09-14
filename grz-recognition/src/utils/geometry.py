@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 
 @dataclass(frozen=True)
@@ -18,7 +18,8 @@ class PlateGeometry:
     foreground: str  # "black"
 
 
-# Extensible registry — add new types/countries here without touching pipeline core
+# Extensible registry — add new types/countries here without touching pipeline core.
+# Class ids for the detector follow insertion order (0..n-1).
 PLATE_TYPES: Dict[str, PlateGeometry] = {
     "type1": PlateGeometry("type1", 520.0, 112.0, 1, "white", "black"),
     "type1a": PlateGeometry("type1a", 290.0, 170.0, 2, "white", "black"),
@@ -26,8 +27,13 @@ PLATE_TYPES: Dict[str, PlateGeometry] = {
     "other": PlateGeometry("other", 520.0, 112.0, 1, "white", "black"),
 }
 
-CLASS_ID_TO_NAME = {0: "type1", 1: "type1a", 2: "type1b", 3: "other"}
-CLASS_NAME_TO_ID = {v: k for k, v in CLASS_ID_TO_NAME.items()}
+CLASS_NAME_TO_ID: Dict[str, int] = {name: i for i, name in enumerate(PLATE_TYPES)}
+CLASS_ID_TO_NAME: Dict[int, str] = {i: name for name, i in CLASS_NAME_TO_ID.items()}
+
+
+def class_names() -> List[str]:
+    """Ordered detector class list derived from PLATE_TYPES (single source of truth)."""
+    return list(PLATE_TYPES.keys())
 
 
 def aspect_ratio(plate_type: str) -> float:

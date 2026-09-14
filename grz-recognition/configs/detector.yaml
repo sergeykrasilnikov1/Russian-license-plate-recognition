@@ -1,19 +1,21 @@
-# YOLOv11n plate detector (classes = plate types)
+# YOLOv11n plate detector.
+# Class names are NOT listed here — they come from src.utils.geometry.PLATE_TYPES
+# and are written into configs/data.yaml by scripts/prepare_detector_split.py.
+
 model: yolo11n.pt
 task: detect
+nc: 4  # must equal len(PLATE_TYPES); validated at train time
 
-# Parametrized class list — extend here for new plate types/countries
-names:
-  0: type1
-  1: type1a
-  2: type1b
-  3: other
+seed: 42
+device: 0  # GPU id on the training server; use "cpu" only for dry debugging
+workers: 4
+project: runs/detect
+name: grz_yolo11n
+exist_ok: true
+pretrained: true
+amp: true
+resume: false
 
-nc: 4
-
-imgsz: 640
-batch: 16
-epochs: 50
 patience: 15
 lr0: 0.01
 lrf: 0.01
@@ -21,23 +23,44 @@ momentum: 0.937
 weight_decay: 0.0005
 warmup_epochs: 3.0
 optimizer: SGD
-seed: 42
-device: 0  # GPU id; use "cpu" if no NVIDIA GPU
-workers: 4
-project: runs/detect
-name: grz_yolo11n
-exist_ok: true
-pretrained: true
-amp: true
 
-# Export
+# Latency/accuracy profiles for GTX 1050 Ti 100 ms budget (pick via --profile).
+profiles:
+  accurate:
+    imgsz: 640
+    batch: 16
+    epochs: 80
+  fast:
+    imgsz: 416
+    batch: 24
+    epochs: 60
+  # Intermediate compromise if 640 misses the latency budget but 416 loses recall.
+  balanced:
+    imgsz: 512
+    batch: 20
+    epochs: 70
+
+# Default active profile fields (overridden by --profile accurate|fast|balanced)
+imgsz: 640
+batch: 16
+epochs: 80
+
+# ONNX export defaults
 export_format: onnx
 opset: 12
 simplify: true
 dynamic: false
-half: false
+half: false  # fp16: measure on 1050 Ti — Pascal fp16 is weaker than Turing/Ampere
 
 # Inference thresholds
 conf: 0.25
 iou: 0.45
 max_det: 10
+
+# Classical-CV vehicle filter (see src/detection/vehicle.py)
+vehicle_filter:
+  enabled: true
+  context_pad: 0.5
+  min_context_score: 0.3
+  min_rel_width: 0.04
+  max_rel_width: 0.55
