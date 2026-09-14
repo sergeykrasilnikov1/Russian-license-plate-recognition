@@ -2,24 +2,19 @@ GRZ dataset validation report
 ========================================
 
 status : PASS
-rows   : 2594 (real=2594, synthetic=0)
-images : 2281
+rows   : 7594 (real=2594, synthetic=5000)
+images : 7281
 
 plates per type:
-  other    plates=267    images=241    unique_plate_nums=0
-  type1    plates=2292   images=2011   unique_plate_nums=116
-  type1a   plates=0      images=0      unique_plate_nums=0
-  type1b   plates=35     images=34     unique_plate_nums=0
+  other    plates=665    images=639    unique_plate_nums=398
+  type1    plates=3419   images=3138   unique_plate_nums=1243
+  type1a   plates=1922   images=1922   unique_plate_nums=1922
+  type1b   plates=1588   images=1587   unique_plate_nums=1553
 
 licenses:
-  CC-BY-4.0        2329
+  CC-BY-4.0        7329
   CC0-1.0          265
 
 errors   (0):
 
-warnings (5):
-  - group type1a: 0 images < recommended 150
-  - group type1b: 34 images < recommended 50
-  - group type1a: 0 unique plates < recommended 300
-  - group type1b: 0 unique plates < recommended 50
-  - synthetic: 0 rows < recommended 5000
+warnings (0):

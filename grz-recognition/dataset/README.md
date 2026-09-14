@@ -115,14 +115,16 @@ ground truth, and it is not presented as such.
 
 | Group | Plates | Images | Unique plate numbers |
 |-------|--------|--------|----------------------|
-| type1 | 2292 | 2011 | 116 |
-| type1a | 0 | 0 | 0 |
-| type1b | 35 | 34 | 0 (text pending Stage 5) |
-| other | 267 | 241 | 0 (no text by definition) |
-| **total** | **2594** | **2281** | **116** |
-| synthetic | 0 | 0 | — (Stage 3) |
+| type1 | 3419 | 3138 | 1243 |
+| type1a | 1922 | 1922 | 1922 |
+| type1b | 1588 | 1587 | 1553 |
+| other | 665 | 639 | 398 |
+| **total** | **7594** | **7281** | — |
+| of which real | 2594 | 2281 | 116 |
+| of which synthetic | 5000 | 5000 | 5000 |
 
-Licenses of labeled rows: CC-BY-4.0 — 2329, CC0-1.0 — 265.
+Licenses of labeled rows: CC-BY-4.0 — 7329, CC0-1.0 — 265.
+Synthetic rows are all `CC-BY-4.0` / `source=synthetic_generator` / `is_synthetic=1`.
 
 ### Staging pool `raw_downloads/manifest.csv`
 
@@ -141,23 +143,16 @@ detector.
 
 ## Real vs synthetic balance per class
 
-| Group | Recommended real minimum | Real (labeled) | Deficit | Coverage plan |
-|-------|--------------------------|----------------|---------|---------------|
-| type1a | 150 images / 300 plates | 0 | full | synthetic (Stage 3, increased share) + Stage 4 filtering of the staging pool |
-| type1b | 50 images / 50 plates | 34 images / 35 plates | 16 images, all 50 unique numbers | synthetic (Stage 3, increased share) + Stage 4 filtering of the staging pool |
-| other | 100 images | 241 images / 267 plates | none | — |
-| type1 | — | 2011 images / 2292 plates | none | — |
+| Group | Recommended real minimum | Real (labeled) | Synthetic | Coverage |
+|-------|--------------------------|----------------|-----------|----------|
+| type1a | 150 images / 300 plates | 0 | 1922 | synthetic closed the Stage 2 deficit |
+| type1b | 50 images / 50 plates | 34 images / 35 plates | 1553 | real shortfall covered by synthetic |
+| other | 100 images | 241 images / 267 plates | 398 | above recommendation |
+| type1 | — | 2011 images / 2292 plates | 1127 | abundant |
 
-`type1a` remains empty after querying every reachable source. Of the six
-Russian-plate projects found through the Roboflow Universe API and the Kaggle
-REST search, **none** annotates plate type: they all carry a single
-`licenseplate`-style class, which confirms the premise of the task that square
-and yellow plates are nearly absent from open datasets. The 35 `type1b` plates
-were recovered by the yellow-background override, not by any source label.
+Synthetic mix (`--seed 42`): `type1=0.22, type1a=0.38, type1b=0.32, other=0.08`.
+Reproduction: `python scripts/build_synthetic.py --count 5000 --seed 42`.
 
-Per the task fallback, the residual deficit is covered by generated data in
-Stage 3 rather than by manual photography, and the final real/synthetic ratio
-per class is reported here once Stage 3 completes.
 
 ## Reproduction
 
