@@ -1,9 +1,10 @@
 # Этап 4 — Детекция и классификация типа знака (YOLOv11n)
 
 - **Дата:** 2026-09-14
-- **Статус:** код и сплит готовы локально; **обучение на GPU-сервере ещё не запускалось**
-- **Где выполнялось:** локальная машина **без GPU** (dry-run / unit-тесты)
+- **Статус:** train остановлен вручную на 34/80; domain-gap eval на `best.pt` выполнен (Kaggle eval v3 COMPLETE)
+- **Где выполнялось:** Kaggle GPU (Tesla P100), локально — CPU dry-run / unit-тесты
 - **Окружение (local):** Python 3.10.12, pytest, PyYAML, OpenCV — **без** torch/ultralytics
+- **Окружение (Kaggle train):** Python 3.12.13, torch 2.3.1+cu118, numpy 2.0.2, ultralytics 8.3.40, Tesla P100
 
 ## 1. Цель этапа
 
@@ -20,15 +21,11 @@
 имён — они попадают в `configs/data.yaml` только через
 `scripts/prepare_detector_split.py`.
 
-### 2.2 Конфиг и профили latency
+### 2.2 Конфиг обучения
 
-`configs/detector.yaml`:
-
-| Профиль | imgsz | batch | epochs | Назначение |
-|---------|-------|-------|--------|------------|
-| `accurate` | 640 | 16 | 80 | качество |
-| `balanced` | 512 | 20 | 70 | компромисс под 100 мс |
-| `fast` | 416 | 24 | 60 | запас по latency на GTX 1050 Ti |
+Один режим: YOLOv11n, `imgsz=640`, `batch=16`, `epochs=80`. Отдельные профили 512/416
+не нужны: nano на 640 и так укладывается в 100 мс на детекторе, а меньший вход режет
+мелкие номера.
 
 ### 2.3 Сплит
 
@@ -53,13 +50,13 @@ train=5825  val=1606
 второй стиль (`--build-style-b`): ночь, меньший масштаб номера, чаще dirt/blur,
 каталог `images/synthetic_style_b/`, `source=synthetic_generator_style_b`.
 
-Метрики на сервере снимать отдельно по четырём спискам (см. §3).
+Метрики по четырём спискам — §3.1 (eval 2026-09-14).
 
 ### 2.5 CLI обучения и экспорта
 
 | Скрипт | Локально | На сервере |
 |--------|----------|------------|
-| `train_detector.py` | `--dry-run` проверяет профиль, data.yaml, классы | реальное `YOLO.train` |
+| `train_detector.py` | `--dry-run` проверяет data.yaml, классы | реальное `YOLO.train` |
 | `export_onnx.py` | `--dry-run` | `model.export(format=onnx)` → `weights/detector.onnx` |
 
 ### 2.6 Эвристика `is_vehicle`
@@ -72,55 +69,71 @@ train=5825  val=1606
 ### 2.7 Тесты
 
 `pytest tests/test_stage4.py` (+ регресс stage1): 18 passed.
-Проверены: профили, holdout style_b, dry-run CLI, эвристика bumper vs poster.
+Проверены: imgsz 640, holdout style_b, dry-run CLI, эвристика bumper vs poster.
 
-## 3. Что выполняется на GPU-сервере (ещё не запускалось)
+## 3. GPU: обучение и eval
 
-Точные команды: **`docs/server_training_guide.md`**.
+Веса: `weights/detector_best.pt`. Сырой JSON eval: `weights/eval_metrics.json`.
+Kaggle: Tesla P100, torch 2.3.1+cu118, numpy 2.0.2, ultralytics 8.3.40.
 
-Кратко:
+### 3.0 Почему 34/80, а не полный прогон
 
-```bash
-pip install -r requirements-train.txt
-python scripts/prepare_detector_split.py --seed 42 --val-ratio 0.2 --build-style-b 150
-python scripts/train_detector.py --profile accurate --device 0 --seed 42
-python scripts/export_onnx.py --weights runs/detect/grz_yolo11n/weights/best.pt --imgsz 640 --out weights/detector.onnx
-python scripts/export_onnx.py --weights runs/detect/grz_yolo11n/weights/best.pt --imgsz 640 --half --out weights/detector_fp16.onnx
-```
+Это **не** лимит сессии Kaggle (9–12 ч) и **не** краш. Сессия остановлена вручную
+примерно через 50 мин (~90 с/эпоха с val). `patience=15` не сработал.
 
-### 3.1 Метрики, которые нужно зафиксировать после обучения
+Кривая `runs/grz_accurate/results.csv` **ещё росла** к остановке, плато нет:
 
-| Подмножество | Ожидание |
-|--------------|----------|
-| val real type1 | эталон «нормального» качества |
-| val syn type1a (тот же стиль) | завышенно высокая mAP — не показатель |
-| val syn type1a style_b | ближе к честной оценке; просадка = domain gap |
-| val real type1b (N≈35) | единственный реальный сигнал класса |
+| epoch | mAP50 | mAP50-95 | train/cls_loss |
+|------:|------:|---------:|---------------:|
+| 1 | 0.884 | 0.745 | 1.86 |
+| 15 | 0.956 | 0.876 | 0.451 |
+| 22 | 0.964 | 0.883 | 0.401 |
+| 30 | 0.968 | 0.892 | 0.385 |
+| **34** | **0.969** | **0.893** | **0.362** |
 
-Также: mAP50 / mAP50-95 **по каждому из 4 классов** на общем val.
+`--resume` с `last.pt` мог бы ещё поднять качество; по запросу обучение **не**
+перезапускалось. Eval ниже — на checkpoint эпохи 34.
 
-### 3.2 Latency (detector only)
+### 3.1 Domain-gap (отдельный eval, без train)
 
-Замер onnxruntime `CUDAExecutionProvider` vs `TensorrtExecutionProvider` (если
-есть) на imgsz 640/512/416. fp16 на Pascal 1050 Ti — только по факту замера,
-не по чужим бенчмаркам.
+`model.val()` на готовом `best.pt`, imgsz 640. На одноклассовых срезах Ultralytics
+иногда копирует одно число во все `maps[]` — в таблице ниже для срезов указан
+**агрегат среза** (это и есть mAP по картинкам этого списка).
 
-В этом отчёте ячейки метрик/latency: **TBD (сервер)**.
+| Срез | N img | mAP50 | mAP50-95 | Комментарий |
+|------|------:|------:|---------:|-------------|
+| val (все классы) | 1606 | 0.969 | 0.894 | то же, что в results.csv эпохи 34 |
+| real type1 | 402 | **0.934** | **0.680** | эталон «реального» мира: IoU/локализация хуже |
+| syn type1a same style | 384 | 0.995 | 0.995 | потолок на своей синтетике, не показатель |
+| syn type1a style_b | 150 | 0.995 | 0.994 | holdout-стиль **не** дал просадки mAP50 |
+| real type1b | **6** | 0.995 | 0.729 | слишком мало кадров; mAP50-95 шумный |
 
-| Профиль | mAP50 | mAP50-95 | ms/img CUDA | ms/img TRT | fp16 delta |
-|---------|-------|----------|-------------|------------|------------|
-| accurate 640 | TBD | TBD | TBD | TBD | TBD |
-| balanced 512 | TBD | TBD | TBD | TBD | TBD |
-| fast 416 | TBD | TBD | TBD | TBD | TBD |
+style_b не отделил type1a от train-синтетики (процедурный night/dirt всё ещё
+тот же генератор). Реальный gap — **real type1 mAP50-95 0.68 vs 0.89 на смеси**.
 
-| Domain-gap slice | mAP50 | mAP50-95 |
-|------------------|-------|----------|
-| real type1 | TBD | TBD |
-| syn type1a same style | TBD | TBD |
-| syn type1a style_b | TBD | TBD |
-| real type1b | TBD | TBD |
+### 3.2 mAP по классам на общем val
 
-Версии на сервере (заполнить после прогона): CUDA __ / PyTorch __ / ultralytics __ / GPU __.
+| Класс | AP50 | mAP50-95 |
+|-------|-----:|---------:|
+| type1 | 0.959 | 0.804 |
+| type1a | 0.995 | 0.995 |
+| type1b | 0.995 | 0.994 |
+| other | 0.926 | 0.783 |
+
+Агрегат 0.969 маскирует слабое место: **реальный type1 по строгой IoU (0.80 / на срезе 0.68)**, а type1a/type1b на val почти целиком синтетика.
+
+### 3.3 Latency (detector)
+
+Экспорт ONNX с пути `/kaggle/input/.../detector_best.pt` упал: read-only FS
+(`detector_best.onnx` рядом с весами). TensorRT на P100 не снимался.
+
+Ориентир по `YOLO.predict` на P100, imgsz 640 (smoke, 12 кадров): первый кадр
+131 мс (прогрев), далее **13–16 мс/кадр**. Это не onnxruntime и не 1050 Ti, но
+порядок величины: детектор один не вылезает за 100 мс на более сильном GPU.
+
+| Режим | mAP50 | mAP50-95 | ms/img (P100, YOLO.predict, после прогрева) | ONNX CUDA | TRT | fp16 |
+|-------|------:|---------:|-------------------------------------------:|-----------|-----|------|
+| YOLOv11n 640 epoch 34 | 0.969 | 0.894 | ~15 | не экспортирован | — | — |
 
 ## 4. Ограничения
 

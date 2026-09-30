@@ -2,8 +2,31 @@
 input_env: GRZ_INPUT_DIR
 output_env: GRZ_OUTPUT_CSV
 
+# Measured winner on the leakage-filtered validation corpus. Use
+# `scripts/run_inference.py --prefer-onnx` for the lightweight legacy fallback.
+engine: reference_pose_crnn
+
+reference_pose_crnn:
+  detector_weights: weights/reference/det.pt
+  ocr_weights: weights/reference/ocr.pt
+  device: auto
+  imgsz: 960
+  det_conf: 0.2
+  unk_thr: 0.45
+  min_conf: 0.2
+  unk_drop_frac: 0.34
+  unk_drop_conf: 0.5
+  emit_other: true
+  half: false
+
 detector:
-  weights: weights/detector.onnx
+  # Prefer exported ONNX for jury/CPU. Local debug may use weights/detector_best.pt
+  # via ultralytics when torch is installed (Stage 4 stub, 34/80 epochs).
+  # YOLO26n trained on Roboflow v3. Class ids are normalized from ONNX
+  # metadata by src/detection/infer.py; the previous YOLO11n file is kept as
+  # weights/detector.onnx for rollback.
+  weights: weights/detector_yolo26n.onnx
+  pt_weights: weights/detector_best.pt
   config: configs/detector.yaml
   providers:  # ONNX Runtime; first available wins
     - CUDAExecutionProvider
@@ -13,7 +36,7 @@ ocr:
   config: configs/ocr.yaml
   weights_dir: weights/ocr
 
-# Reject plates not on a vehicle (is_vehicle heuristic)
+# Reject plates not on a vehicle (same classical heuristic for both engines).
 vehicle_filter:
   enabled: true
   # Expand bbox by this fraction and require vehicle-like context score

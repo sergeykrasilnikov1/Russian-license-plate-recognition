@@ -6,8 +6,8 @@ Real training runs on the GPU server (see docs/server_training_guide.md).
 
   python scripts/prepare_detector_split.py --seed 42 --build-style-b 150
   python scripts/train_detector.py --config configs/detector.yaml --data configs/data.yaml \\
-      --profile accurate --device 0 --seed 42
-  python scripts/train_detector.py --dry-run --profile fast
+      --device 0 --seed 42
+  python scripts/train_detector.py --dry-run
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.detection.train import assert_class_list_matches_geometry, load_detector_config, resolve_profile, train_yolo
+from src.detection.train import assert_class_list_matches_geometry, load_detector_config, train_yolo
 from src.utils.geometry import class_names
 
 
@@ -28,7 +28,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Train GRZ YOLOv11n detector")
     p.add_argument("--config", type=Path, default=ROOT / "configs" / "detector.yaml")
     p.add_argument("--data", type=Path, default=ROOT / "configs" / "data.yaml")
-    p.add_argument("--profile", type=str, default="accurate", choices=("accurate", "fast", "balanced"))
     p.add_argument("--epochs", type=int, default=None)
     p.add_argument("--imgsz", type=int, default=None)
     p.add_argument("--batch", type=int, default=None)
@@ -44,11 +43,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     cfg = load_detector_config(args.config)
-    try:
-        resolved = resolve_profile(cfg, args.profile)
-    except KeyError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 2
+    resolved = dict(cfg)
 
     if args.epochs is not None:
         resolved["epochs"] = args.epochs
@@ -78,7 +73,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: class {name!r} missing from {args.data}", file=sys.stderr)
             return 2
 
-    print(f"profile={args.profile}  imgsz={resolved['imgsz']}  batch={resolved['batch']}  "
+    print(f"imgsz={resolved['imgsz']}  batch={resolved['batch']}  "
           f"epochs={resolved['epochs']}  classes={class_names()}")
     if args.dry_run:
         print("dry-run OK (ultralytics not invoked)")

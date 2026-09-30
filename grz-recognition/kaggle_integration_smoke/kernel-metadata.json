@@ -1,0 +1,16 @@
+{
+  "id": "sergeniy/grz-integrated-runtime-smoke",
+  "title": "GRZ integrated runtime smoke",
+  "code_file": "integration_smoke.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_internet": false,
+  "dataset_sources": [
+    "sergeniy/grz-plates-detector",
+    "sergeniy/grz-integrated-runtime"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}

@@ -1,4 +1,4 @@
-"""Stage 4 tests: detector split, config profiles, vehicle heuristic, CLI dry-run.
+"""Stage 4 tests: detector split, config, vehicle heuristic, CLI dry-run.
 
 CPU-only — no ultralytics / torch required.
 """
@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 
 from scripts import export_onnx, prepare_detector_split, train_detector
 from src.detection.split import load_image_records, stratified_split, write_data_yaml, write_split_lists
-from src.detection.train import assert_class_list_matches_geometry, load_detector_config, resolve_profile
+from src.detection.train import assert_class_list_matches_geometry, load_detector_config
 from src.detection.vehicle import VehicleFilterConfig, is_on_vehicle, vehicle_context_score
 from src.utils.geometry import CLASS_NAME_TO_ID, PLATE_TYPES, class_names
 
@@ -34,18 +34,12 @@ class TestGeometryClasses:
 
 
 class TestConfig:
-    def test_profiles_exist(self):
+    def test_single_train_size(self):
         cfg = load_detector_config(ROOT / "configs" / "detector.yaml")
-        for name in ("accurate", "fast", "balanced"):
-            resolved = resolve_profile(cfg, name)
-            assert "imgsz" in resolved
-        assert resolve_profile(cfg, "accurate")["imgsz"] == 640
-        assert resolve_profile(cfg, "fast")["imgsz"] == 416
-
-    def test_unknown_profile(self):
-        cfg = load_detector_config(ROOT / "configs" / "detector.yaml")
-        with pytest.raises(KeyError):
-            resolve_profile(cfg, "turbo")
+        assert cfg["imgsz"] == 640
+        assert cfg["batch"] == 16
+        assert cfg["epochs"] == 80
+        assert "profiles" not in cfg
 
 
 class TestSplit:
@@ -111,13 +105,13 @@ class TestCli:
         data = tmp_path / "data.yaml"
         write_data_yaml(data, dataset_root=tmp_path, train_list=tmp_path / "t.txt", val_list=tmp_path / "v.txt")
         code = train_detector.main(
-            ["--dry-run", "--profile", "fast", "--data", str(data), "--config", str(ROOT / "configs" / "detector.yaml")]
+            ["--dry-run", "--data", str(data), "--config", str(ROOT / "configs" / "detector.yaml")]
         )
         assert code == 0
 
     def test_export_dry_run(self):
         code = export_onnx.main(
-            ["--dry-run", "--weights", "runs/detect/fake/best.pt", "--imgsz", "416", "--half"]
+            ["--dry-run", "--weights", "runs/detect/fake/best.pt", "--imgsz", "640", "--half"]
         )
         assert code == 0
 

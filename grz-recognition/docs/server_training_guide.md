@@ -35,22 +35,12 @@ Class names in `configs/data.yaml` are generated from
 
 ## 3. Train
 
-Accurate profile (imgsz 640):
-
 ```bash
 python scripts/train_detector.py \
   --config configs/detector.yaml \
   --data configs/data.yaml \
-  --profile accurate \
   --device 0 \
   --seed 42
-```
-
-If end-to-end latency later exceeds 100 ms on GTX 1050 Ti, also train:
-
-```bash
-python scripts/train_detector.py --profile fast --device 0 --seed 42
-python scripts/train_detector.py --profile balanced --device 0 --seed 42
 ```
 
 Weights land under `runs/detect/grz_yolo11n*/weights/best.pt`.

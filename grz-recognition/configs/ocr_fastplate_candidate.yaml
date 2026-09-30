@@ -1,0 +1,10 @@
+# Candidate only: not selected until held-out OCR and full-pipeline evaluation.
+# Place the matching upstream plate config next to the ONNX as fastplate.yaml.
+charset: "0123456789ABEKMHOPCTYX#"
+active: fastplate
+rec_weights_by_backend:
+  fastplate: weights/ocr/fastplate.onnx
+type1a_mode: flatten
+warp_scale: 0.8
+min_char_conf: 0.35
+confidence_mode: det_ocr_min

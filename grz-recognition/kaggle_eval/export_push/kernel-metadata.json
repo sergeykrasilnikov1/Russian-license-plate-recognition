@@ -1,0 +1,15 @@
+{
+  "id": "sergeniy/grz-export-detector-onnx",
+  "title": "grz-export-detector-onnx",
+  "code_file": "export_kernel.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [
+    "sergeniy/grz-detector-weights"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}

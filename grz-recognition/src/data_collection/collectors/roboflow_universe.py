@@ -55,8 +55,6 @@ class RoboflowProject:
 # matches the premise of the task.
 DEFAULT_PROJECTS: tuple[RoboflowProject, ...] = (
     RoboflowProject("tatmantech", "russian-license-plates-ec7zg", filename_has_plate=True),
-    RoboflowProject("carplates", "russian-plate-kuabh"),
-    RoboflowProject("plate-tsusp", "russian-plate"),
 )
 
 

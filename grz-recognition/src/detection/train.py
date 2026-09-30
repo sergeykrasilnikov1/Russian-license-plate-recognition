@@ -17,17 +17,6 @@ def load_detector_config(path: Path) -> dict[str, Any]:
     return raw
 
 
-def resolve_profile(cfg: dict[str, Any], profile: str) -> dict[str, Any]:
-    """Merge top-level keys with profiles.<name> (profile wins)."""
-    profiles = cfg.get("profiles") or {}
-    if profile not in profiles:
-        raise KeyError(f"unknown profile {profile!r}; available: {sorted(profiles)}")
-    merged = {k: v for k, v in cfg.items() if k != "profiles"}
-    merged.update(profiles[profile])
-    merged["profile"] = profile
-    return merged
-
-
 def assert_class_list_matches_geometry(cfg: dict[str, Any] | None = None) -> list[str]:
     """Detector classes must come from PLATE_TYPES — reject hardcoded drift."""
     names = class_names()

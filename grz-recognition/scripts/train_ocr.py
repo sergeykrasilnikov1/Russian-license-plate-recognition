@@ -16,7 +16,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    raise NotImplementedError(f"Stage 5: train OCR with {args.config}")
+    raise SystemExit("OCR fine-tuning is not implemented. Inference uses pretrained local pose/CRNN or ONNX weights; see README.md.")
 
 
 if __name__ == "__main__":

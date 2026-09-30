@@ -12,6 +12,7 @@ import numpy as np
 class VehicleFilterConfig:
     context_pad: float = 0.5
     min_context_score: float = 0.3
+    min_context_evidence: float = 0.1
     # Plate width relative to image: typical bumper shot, not a full-screen poster.
     min_rel_width: float = 0.04
     max_rel_width: float = 0.55
@@ -75,7 +76,7 @@ def vehicle_context_score(
     )
     band = image_bgr[cy0:cy1, cx0:cx1]
     if band.size == 0:
-        below_score = 0.4
+        below_score = 0.0
     else:
         gray = cv2.cvtColor(band, cv2.COLOR_BGR2GRAY)
         mean = float(gray.mean())
@@ -85,6 +86,8 @@ def vehicle_context_score(
         texture = min(1.0, std / 40.0)
         below_score = 0.55 * darkness + 0.45 * texture
 
+    if below_score < cfg.min_context_evidence:
+        return 0.0
     score = 0.35 * size_score + 0.25 * pos_score + 0.40 * below_score
     return float(np.clip(score, 0.0, 1.0))
 

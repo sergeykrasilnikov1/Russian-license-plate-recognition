@@ -24,23 +24,8 @@ weight_decay: 0.0005
 warmup_epochs: 3.0
 optimizer: SGD
 
-# Latency/accuracy profiles for GTX 1050 Ti 100 ms budget (pick via --profile).
-profiles:
-  accurate:
-    imgsz: 640
-    batch: 16
-    epochs: 80
-  fast:
-    imgsz: 416
-    batch: 24
-    epochs: 60
-  # Intermediate compromise if 640 misses the latency budget but 416 loses recall.
-  balanced:
-    imgsz: 512
-    batch: 20
-    epochs: 70
-
-# Default active profile fields (overridden by --profile accurate|fast|balanced)
+# YOLOv11n at 640 already fits the 100 ms end-to-end budget on GTX 1050 Ti
+# with room for OCR; extra 512/416 trains are not worth the recall loss on small plates.
 imgsz: 640
 batch: 16
 epochs: 80

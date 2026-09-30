@@ -46,10 +46,10 @@ class KaggleDataset:
         return f"https://www.kaggle.com/datasets/{self.ref}"
 
 
-DEFAULT_DATASETS: tuple[KaggleDataset, ...] = (
-    # Non-Russian plates: exactly what the `other` class needs as negatives.
-    KaggleDataset("andrewmvd/car-plate-detection", annotation_format="voc", plate_type="other"),
-)
+# No Kaggle dataset is enabled by default. Pass an explicit ``datasets=``
+# tuple when a reviewed source should be collected. Keeping the removed
+# andrewmvd dataset here would silently add it again on the next collection run.
+DEFAULT_DATASETS: tuple[KaggleDataset, ...] = ()
 
 # Deliberately excluded, keep the reasoning with the code:
 #   evgrafovmaxim/nomeroff-russian-license-plates — LGPL-3.0 copyleft, cannot

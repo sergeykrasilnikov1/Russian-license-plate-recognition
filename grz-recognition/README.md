@@ -1,144 +1,129 @@
-# GRZ Recognition — нестандартные российские ГРЗ
+# GRZ Recognition
 
-Offline-пайплайн для полуфинала олимпиады **АИС Город**: детекция и распознавание
-государственных регистрационных знаков типов **type1**, **type1a**, **type1b**
-и отсев **other**.
+Офлайн-распознавание российских автомобильных номеров для полуфинала
+«Искусственный интеллект и анализ данных» Volga IT.
 
-## Две среды: локальная (CPU) и обучающая (GPU)
+Проект находит номерные знаки на изображениях, определяет их тип и распознаёт
+текст. Поддерживаются обычные номера (`type1`), квадратные двухстрочные
+(`type1a`), жёлтые (`type1b`) и прочие знаки (`other`). Результат сохраняется
+в CSV. Во время распознавания доступ к интернету не требуется.
 
-Проект намеренно разделён на два окружения, зависимости не смешиваются:
+## Быстрый старт
 
-| Файл | Где ставится | Что покрывает |
-|------|--------------|---------------|
-| `requirements-dev.txt` | локальная машина **без GPU** | сбор данных, генерация синтетики, фильтры (mediapipe/imagehash), тесты |
-| `requirements-train.txt` | отдельный **GPU-сервер** | torch, ultralytics, paddleocr, onnx/onnxruntime-gpu — обучение, экспорт, бенчмарк, инференс |
+Python **3.10–3.12**, Linux или Windows с WSL2. Для GPU-инференса используется
+NVIDIA с установленным драйвером; при отсутствии CUDA выбирается CPU.
 
-Отсутствие `torch`/`paddlepaddle` на локальной машине — это ожидаемое состояние, а не
-проблема: Этапы 2–3 (данные) полностью CPU-only, Этапы 4–6 выполняются на сервере.
-
-### Локальная установка (Этапы 2–3, тесты)
+Из корня репозитория:
 
 ```bash
 cd grz-recognition
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements-dev.txt
-```
-
-Проверка каркаса:
-
-```bash
-python -c "from src.utils.plate_mask import validate_plate; print(validate_plate('A123BC777'))"
-python scripts/validate_dataset.py --dataset dataset
-python -m pytest tests -q
-```
-
-### Ключи источников данных
-
-Сбор данных (Этап 2) читает ключи **только из переменных окружения** — в
-репозитории они не хранятся. Без ключа источник объявляет себя недоступным и
-пропускается, прогон при этом не падает.
-
-```bash
-export ROBOFLOW_API_KEY=...     # Roboflow Universe
-export KAGGLE_API_TOKEN=...     # либо файл ~/.kaggle/access_token
-export OPENVERSE_API_TOKEN=...  # необязательно, поднимает лимит запросов
-
-python scripts/scrape_real_data.py --probe-only   # какие источники доступны
-```
-
-## Обучение выполняется на GPU-сервере
-
-Локально код Этапов 4–6 только пишется и проверяется логически (импорты, CLI,
-чистые функции, mock-прогоны). Реальное обучение, экспорт в ONNX, бенчмарк
-latency и инференс запускаются на сервере с NVIDIA GPU.
-
-Установка на сервере:
-
-```bash
-git clone <repo> && cd grz-recognition
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements-dev.txt
-pip install -r requirements-train.txt
-# paddlepaddle: выбрать сборку под CUDA сервера, см. комментарий в requirements-train.txt
-```
-
-Команды на сервере:
-
-```bash
-# Этап 3 (если синтетику генерируем там же)
-python scripts/build_synthetic.py --out dataset --count 6000 --seed 42
-
-# Этап 4: обучение детектора + экспорт в ONNX
-python scripts/train_detector.py --config configs/detector.yaml --data configs/data.yaml
-
-# Этап 5: дообучение OCR
-python scripts/train_ocr.py --config configs/ocr.yaml --crops-dir dataset/crops
-
-# Этап 5/6: замер latency (бюджет 100 мс/изображение)
-python scripts/benchmark_latency.py --input dataset/images/real --n 200 --config configs/pipeline.yaml
-
-# Этап 6: финальный инференс
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-runtime.txt
 python scripts/run_inference.py --input /path/to/images --output result.csv
 ```
 
-## Правило артефактов
+Зависимости устанавливаются один раз. Веса моделей входят в репозиторий;
+инференс не загружает модели и не обращается к внешним API.
 
-Все генерируемые данные — скачанные датасеты, синтетика, кропы, веса, логи,
-отчёты валидатора — пишутся **только внутрь `grz-recognition/`**. Ничего не
-создаётся в `/tmp` или вне репозитория; логи идут в `logs/`, кэш загрузок в
-`.cache/` (оба в `.gitignore`). После каждого завершённого этапа делается
-git-коммит, чтобы прогресс не терялся.
+Входной каталог может содержать `.jpg`, `.jpeg` и `.png`, включая вложенные
+каталоги. Имена файлов должны быть уникальными. Повреждённые изображения
+пропускаются с сообщением в журнале.
 
-## Требования
-
-- Python 3.10+
-- Linux / Windows 11 (WSL2)
-- NVIDIA GPU — только для обучения; инференс — ONNX Runtime (CUDA или CPU)
-- Референсный бюджет latency: **≤ 100 мс / изображение** на GTX 1050 Ti
-
-## Запуск инференса (после Этапа 6)
+Пути также можно передать через переменные окружения:
 
 ```bash
-python scripts/run_inference.py --input /path/to/images --output result.csv
-# или:
 export GRZ_INPUT_DIR=/path/to/images
 export GRZ_OUTPUT_CSV=result.csv
 python scripts/run_inference.py
 ```
 
-Выходной CSV: `image;plate_num;plate_type;confidence` (UTF-8, `;`).
+## Выходной формат
 
-## Структура
+CSV: UTF-8, разделитель `;`, заголовок в первой строке.
 
-См. дерево в `agent_prompt` / задание полуфинала. Ключевые точки входа:
+```csv
+image;plate_num;plate_type;confidence
+car_01.jpg;A123BC777;type1;0.9300
+car_02.jpg;K555OP25;type1a;0.8800
+car_03.jpg;H741C###;type1b;0.6200
+```
 
-| Скрипт | Назначение |
-|--------|------------|
-| `scripts/scrape_real_data.py` | Автосбор реальных фото (`--probe-only`, `--dry-run`, `--plate-types`) |
-| `scripts/build_synthetic.py` | Синтетика ≥ 5000, `--seed` |
-| `scripts/train_detector.py` | YOLOv11n |
-| `scripts/train_ocr.py` | Дообучение OCR |
-| `scripts/benchmark_latency.py` | Замер ≤ 100 мс |
-| `scripts/run_inference.py` | Финальный offline inference |
-| `scripts/validate_dataset.py` | Валидация `dataset/` |
+`image` содержит только имя файла. Каждому найденному знаку соответствует
+отдельная строка; если знаки не найдены, строк для изображения нет.
+Нечитаемые символы обозначаются `#`. Уверенность находится в диапазоне `[0, 1]`.
 
-## Этапы реализации
+## Как это работает
 
-По каждому завершённому этапу в `docs/reports/stageN.md` лежит подробный отчёт:
-что сделано, какими командами протестировано, какой был вывод, что осталось.
+1. YOLO-pose находит номер и четыре угла.
+2. Контекстный фильтр проверяет расположение знака на транспортном средстве.
+3. Перспективное преобразование выравнивает номер; квадратные номера читаются
+   по строкам.
+4. CRNN распознаёт текст, а геометрия, цвет и маска номера уточняют тип.
 
-| Этап | Тема | Отчёт |
-|------|------|-------|
-| 1 | Структура и окружение | [stage1.md](docs/reports/stage1.md) |
-| 2 | Автосбор реальных данных | [stage2.md](docs/reports/stage2.md) |
-| 3 | Генератор синтетики | — |
-| 4 | Детекция (YOLO) + тип как класс | — |
-| 5 | OCR + benchmark | — |
-| 6 | Inference CLI | — |
-| 7 | Документация и валидатор | — |
+Основные настройки находятся в `configs/pipeline.yaml`. Альтернативный
+ONNX-пайплайн запускается так:
 
-## Лицензия данных
+```bash
+python scripts/run_inference.py --input /path/to/images --output result.csv --prefer-onnx
+```
 
-Датасет сдаётся под **CC BY 4.0** (`dataset/LICENSE`). Все источники — с лицензией,
-допускающей некоммерческое использование, либо собственная синтетика.
+## Проверка скорости
+
+Замер выбранного пайплайна на своих изображениях, без эталонной разметки:
+
+```bash
+python scripts/benchmark_latency.py --latency-only --input /path/to/images --n 200 --warmup 3
+```
+
+Команда выводит среднее время, медиану и p95 в мс/изображение.
+Чтение с диска и первые изображения для прогрева исключаются из замера.
+Для ONNX-варианта добавьте `--prefer-onnx`.
+
+## Датасет и генератор
+
+Разметка хранится в `dataset/meta.csv`: одна строка на знак, разделитель `;`.
+Поля: `image`, `plate_num`, `plate_type`, `bbox`, `quad`, `is_vehicle`,
+`is_synthetic`, `source`, `license`, `conditions`.
+
+Фотографии и метки поставляются отдельным архивом датасета.
+Источники и методика описаны в [даташите](dataset/README.md).
+
+Для работы с данными и запуска тестов:
+
+```bash
+pip install -r requirements-dev.txt
+python scripts/build_synthetic.py --out dataset --count 5000 --seed 42
+python scripts/validate_dataset.py --dataset dataset
+python -m pytest tests -q
+```
+
+Синтетика воспроизводится по seed. Генератор и его ресурсы находятся
+в `dataset/generator/`. Локальный валидатор сохраняет результат
+в `dataset/validation_report.txt`.
+Архив для передачи создаётся командой:
+
+```bash
+python scripts/package_dataset.py --output dist/dataset.zip
+```
+
+## Структура проекта
+
+```text
+configs/       настройки детектора, OCR и пайплайна
+src/           детекция, OCR, обработка и сбор данных
+scripts/       команды запуска, проверки и генерации
+weights/       локальные веса моделей
+dataset/      метаданные, генератор и даташит
+docs/         пояснительная записка и технические отчёты
+tests/        автоматические проверки
+```
+
+## Источники и лицензии
+
+Данные описаны в `dataset/README.md`, лицензия датасета — CC BY 4.0.
+Основной runtime использует код и веса
+[Lin-Lini/volga-it-2026-lpr](https://github.com/Lin-Lini/volga-it-2026-lpr).
+Версия, происхождение весов и MIT License сохранены в
+`src/vendor/volga_it_2026_lpr/`. Компонент Ultralytics распространяется
+по AGPL-3.0. Атрибуция ресурсов генератора находится рядом с ресурсами.

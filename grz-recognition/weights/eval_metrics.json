@@ -1,0 +1,286 @@
+{
+  "weights": "/kaggle/input/datasets/sergeniy/grz-detector-weights/detector_best.pt",
+  "data_root": "/kaggle/input/datasets/sergeniy/grz-plates-detector",
+  "device": 0,
+  "gpu": "Tesla P100-PCIE-16GB",
+  "torch": "2.3.1+cu118",
+  "numpy": "2.0.2",
+  "domain_gap": {
+    "val.txt": {
+      "list": "val.txt",
+      "imgsz": 640,
+      "map50": 0.9687244953932612,
+      "map50_95": 0.8939552836261608,
+      "ap50_per_class": {
+        "type1": 0.9592034177945372,
+        "type1a": 0.995,
+        "type1b": 0.9949059561128527,
+        "other": 0.9257886076656551
+      },
+      "map50_95_per_class": {
+        "type1": 0.8037252133418222,
+        "type1a": 0.9949981132075472,
+        "type1b": 0.9940516727506473,
+        "other": 0.7830461352046265
+      }
+    },
+    "val_real_type1.txt": {
+      "list": "val_real_type1.txt",
+      "imgsz": 640,
+      "map50": 0.9343213748341529,
+      "map50_95": 0.6796802703818927,
+      "ap50_per_class": {
+        "type1": 0.9343213748341529
+      },
+      "map50_95_per_class": {
+        "type1": 0.6796802703818927
+      }
+    },
+    "val_syn_type1a.txt": {
+      "list": "val_syn_type1a.txt",
+      "imgsz": 640,
+      "map50": 0.995,
+      "map50_95": 0.9949999999999999,
+      "ap50_per_class": {
+        "type1a": 0.995
+      },
+      "map50_95_per_class": {
+        "type1a": 0.9949999999999999
+      }
+    },
+    "val_syn_type1a_style_b.txt": {
+      "list": "val_syn_type1a_style_b.txt",
+      "imgsz": 640,
+      "map50": 0.995,
+      "map50_95": 0.9943954591962324,
+      "ap50_per_class": {
+        "type1a": 0.995
+      },
+      "map50_95_per_class": {
+        "type1a": 0.9943954591962324
+      }
+    },
+    "val_real_type1b.txt": {
+      "list": "val_real_type1b.txt",
+      "imgsz": 640,
+      "map50": 0.995,
+      "map50_95": 0.7293551764705882,
+      "ap50_per_class": {
+        "type1b": 0.995
+      },
+      "map50_95_per_class": {
+        "type1b": 0.7293551764705882
+      }
+    }
+  },
+  "smoke": [
+    {
+      "image": "syn_styleb_777_0000.jpg",
+      "n": 1,
+      "ms": 130.98,
+      "boxes": [
+        {
+          "cls": "type1a",
+          "conf": 0.9678,
+          "xyxy": [
+            261.2,
+            555.8,
+            458.4,
+            683.6
+          ]
+        }
+      ]
+    },
+    {
+      "image": "syn_styleb_777_0001.jpg",
+      "n": 1,
+      "ms": 62.41,
+      "boxes": [
+        {
+          "cls": "type1a",
+          "conf": 0.9546,
+          "xyxy": [
+            623.1,
+            316.8,
+            737.4,
+            388.0
+          ]
+        }
+      ]
+    },
+    {
+      "image": "syn_styleb_777_0002.jpg",
+      "n": 1,
+      "ms": 15.47,
+      "boxes": [
+        {
+          "cls": "type1a",
+          "conf": 0.9668,
+          "xyxy": [
+            596.0,
+            505.6,
+            790.8,
+            637.1
+          ]
+        }
+      ]
+    },
+    {
+      "image": "syn_styleb_777_0003.jpg",
+      "n": 1,
+      "ms": 13.34,
+      "boxes": [
+        {
+          "cls": "type1a",
+          "conf": 0.9476,
+          "xyxy": [
+            80.7,
+            353.3,
+            263.6,
+            408.3
+          ]
+        }
+      ]
+    },
+    {
+      "image": "syn_styleb_777_0004.jpg",
+      "n": 1,
+      "ms": 14.17,
+      "boxes": [
+        {
+          "cls": "type1a",
+          "conf": 0.9557,
+          "xyxy": [
+            250.9,
+            611.6,
+            369.2,
+            672.8
+          ]
+        }
+      ]
+    },
+    {
+      "image": "syn_styleb_777_0005.jpg",
+      "n": 1,
+      "ms": 58.17,
+      "boxes": [
+        {
+          "cls": "type1a",
+          "conf": 0.9497,
+          "xyxy": [
+            568.9,
+            544.3,
+            692.4,
+            599.0
+          ]
+        }
+      ]
+    },
+    {
+      "image": "syn_styleb_777_0006.jpg",
+      "n": 1,
+      "ms": 15.08,
+      "boxes": [
+        {
+          "cls": "type1a",
+          "conf": 0.9526,
+          "xyxy": [
+            481.0,
+            509.2,
+            656.1,
+            623.2
+          ]
+        }
+      ]
+    },
+    {
+      "image": "syn_styleb_777_0007.jpg",
+      "n": 1,
+      "ms": 16.52,
+      "boxes": [
+        {
+          "cls": "type1a",
+          "conf": 0.9599,
+          "xyxy": [
+            321.1,
+            362.5,
+            547.6,
+            478.8
+          ]
+        }
+      ]
+    },
+    {
+      "image": "syn_styleb_777_0008.jpg",
+      "n": 1,
+      "ms": 16.95,
+      "boxes": [
+        {
+          "cls": "type1a",
+          "conf": 0.9705,
+          "xyxy": [
+            451.5,
+            497.9,
+            656.0,
+            671.9
+          ]
+        }
+      ]
+    },
+    {
+      "image": "syn_styleb_777_0009.jpg",
+      "n": 1,
+      "ms": 15.28,
+      "boxes": [
+        {
+          "cls": "type1a",
+          "conf": 0.9546,
+          "xyxy": [
+            591.2,
+            538.8,
+            756.8,
+            628.7
+          ]
+        }
+      ]
+    },
+    {
+      "image": "syn_styleb_777_0010.jpg",
+      "n": 1,
+      "ms": 13.4,
+      "boxes": [
+        {
+          "cls": "type1a",
+          "conf": 0.9362,
+          "xyxy": [
+            310.9,
+            380.1,
+            478.7,
+            466.3
+          ]
+        }
+      ]
+    },
+    {
+      "image": "syn_styleb_777_0011.jpg",
+      "n": 1,
+      "ms": 14.14,
+      "boxes": [
+        {
+          "cls": "type1a",
+          "conf": 0.9511,
+          "xyxy": [
+            19.4,
+            377.0,
+            159.9,
+            453.7
+          ]
+        }
+      ]
+    }
+  ],
+  "latency": {
+    "error": "[Errno 30] Read-only file system: '/kaggle/input/datasets/sergeniy/grz-detector-weights/detector_best.onnx'"
+  },
+  "metric_label_correction": "2026-09-17: single-class subset keys corrected; absent classes removed. Original aggregate measurements unchanged; no model reevaluation."
+}

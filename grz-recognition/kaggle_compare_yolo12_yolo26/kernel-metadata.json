@@ -1,0 +1,15 @@
+{
+  "id": "sergeniy/grz-yolo12n-vs-yolo26n-on-roboflow-v3",
+  "title": "GRZ YOLO12n vs YOLO26n on Roboflow v3",
+  "code_file": "train_compare.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [
+    "sergeniy/grz-plates-v3"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}
