@@ -29,7 +29,6 @@ dataset/crops/
 dataset/splits/*.txt
 !dataset/splits/.gitkeep
 dataset/raw_downloads/*
-!dataset/raw_downloads/manifest.csv
 result.csv
 logs/
 .cache/
@@ -41,12 +40,17 @@ kaggle_integration_assets/
 graphify-out/
 dataset/platesmania_square/
 dataset/platesmania_square_*.zip
-kaggle_ocr_assets/src/
-kaggle_ocr_assets/weights/
-kaggle_ocr_assets/configs/
-kaggle_results/*
-!kaggle_results/reference_pose_crnn_v1/
-kaggle_results/reference_pose_crnn_v1/*
-!kaggle_results/reference_pose_crnn_v1/reference_evaluation_summary.json
 
 dist/
+
+# Local experiment history and generated reports
+kaggle_*/
+docs/reports/
+docs/ocr_selection_progress.md
+docs/server_training_guide.md
+scripts/evaluate_reference_crnn.py
+configs/ocr_fastplate_candidate.yaml
+configs/ocr_routed_candidate.yaml
+weights/eval_metrics.json
+weights/grz_accurate_results.csv
+dataset/generator/references/

@@ -2,7 +2,7 @@
 """Train YOLOv11n plate detector (classes = plate types from geometry.PLATE_TYPES).
 
 Local CPU machine: use --dry-run to validate config + data.yaml without ultralytics.
-Real training runs on the GPU server (see docs/server_training_guide.md).
+Real training runs on a machine with the training dependencies installed.
 
   python scripts/prepare_detector_split.py --seed 42 --build-style-b 150
   python scripts/train_detector.py --config configs/detector.yaml --data configs/data.yaml \\

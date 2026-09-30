@@ -118,23 +118,6 @@ def test_invalid_gt_metadata_is_skipped():
     assert rows == []
 
 
-def test_metrics_follow_actual_class_ids():
-    import ast
-    from types import SimpleNamespace
-    tree = ast.parse((ROOT / 'kaggle_eval/eval_kernel.py').read_text())
-    # Exercise the exact serialization expressions without running the Kaggle job.
-    assignments = {}
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign) and isinstance(node.value, ast.DictComp):
-            target = node.targets[0]
-            if isinstance(target, ast.Subscript) and isinstance(target.slice, ast.Constant):
-                assignments[target.slice.value] = node.value
-    box = SimpleNamespace(ap_class_index=np.array([2]), ap50=np.array([.92]))
-    ns = {'CLASS_NAMES': ['type1','type1a','type1b','other'], 'box': box,
-          'maps': [.75,.75,.81,.75], 'n':4}
-    assert eval(compile(ast.Expression(assignments['ap50_per_class']), '<test>', 'eval'), ns) == {'type1b': .92}
-    assert eval(compile(ast.Expression(assignments['map50_95_per_class']), '<test>', 'eval'), ns) == {'type1b': .81}
-
 
 def test_cli_uses_basename_for_nested_images(tmp_path, monkeypatch):
     from types import SimpleNamespace

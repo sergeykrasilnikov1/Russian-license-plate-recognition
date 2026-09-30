@@ -17,10 +17,6 @@ Type 1Б is that plate recoloured yellow. Type 1А fills `assets/type1a_blank.pn
 (region frame + RUS/flag already on the blank). `other` uses the type-1 layout
 in diplomatic red.
 
-Isolated previews (white studio background): `references/preview_type1.png`,
-`preview_type1a.png`, `preview_type1b.png`.
-
 ## Default mix
 
-`type1=0.22, type1a=0.38, type1b=0.32, other=0.08` — type1a/type1b boosted
-because Stage 2 could not fill those groups from open sources.
+`type1=0.22, type1a=0.38, type1b=0.32, other=0.08`.
