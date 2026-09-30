@@ -27,6 +27,12 @@ dataset/
 
 ## Источники и методика
 
+Собственный размеченный набор реальных фотографий с ГРЗ доступен в
+[проекте Roboflow sergai / 1-djo2q](https://app.roboflow.com/sergai/1-djo2q/models).
+Он предназначен для детекции и классификации номерных знаков.
+Приведённая ниже статистика относится к локальному архиву датасета.
+
+
 Реальная часть локального набора получена из
 [tatmantech/russian-license-plates-ec7zg, версия 2](https://universe.roboflow.com/tatmantech/russian-license-plates-ec7zg)
 через официальный экспорт Roboflow. В реестре источника записана CC BY 4.0;
@@ -60,7 +66,7 @@ dataset/
 
 ## Воспроизведение и проверка
 
-Из каталога `grz-recognition/`:
+Из корня репозитория:
 
 ```bash
 pip install -r requirements-dev.txt
