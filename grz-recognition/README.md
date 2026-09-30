@@ -86,7 +86,8 @@ python scripts/benchmark_latency.py --latency-only --input /path/to/images --n 2
 Поля: `image`, `plate_num`, `plate_type`, `bbox`, `quad`, `is_vehicle`,
 `is_synthetic`, `source`, `license`, `conditions`.
 
-Фотографии и метки поставляются отдельным архивом датасета.
+Фотографии и метки доступны в
+[архиве датасета](https://github.com/sergeykrasilnikov1/volgaIT/releases/tag/v1.0.0).
 Источники и методика описаны в [даташите](dataset/README.md).
 
 Для работы с данными и запуска тестов:
